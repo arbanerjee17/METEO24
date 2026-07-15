@@ -86,7 +86,7 @@ METEO24/
 │
 ├── meteo24-code.html
 ├── README.md
-├── screenshot.png
+├── METEO24.png
 ```
 
 ---
