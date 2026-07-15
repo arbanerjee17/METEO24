@@ -61,7 +61,7 @@ The dashboard estimates disaster risks using live environmental data.
 ### 1️⃣ Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/METEO24.git
+git clone https://github.com/arbanerjee17/METEO24.git
 cd METEO24
 ```
 
@@ -70,7 +70,7 @@ cd METEO24
 Simply open
 
 ```
-
+https://meteo-24.vercel.app/
 ```
 
 in any modern web browser.
@@ -132,6 +132,6 @@ Disaster risk levels are generated using simple heuristics based on publicly ava
 
 # 👨‍💻 Author
 
-### 💙 Designed & Developed by Aparup Banerjee ( Associate, IIMCIP-TIC )                                        
+### 💙 Designed & Developed by Aparup Banerjee ( Tech Associate, IIMCIP-TIC )                                        
 
 **Weather Intelligence • Disaster Monitoring • Web Development**
