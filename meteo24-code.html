@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REGIONAL DISASTER MONITOR — WEST BENGAL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#060b10;
+    --panel:#0b141a;
+    --grid-line:#16242c;
+    --text:#d9ecec;
+    --text-dim:#5c7684;
+    --low:#00e676;
+    --med:#ffb020;
+    --high:#ff3b5c;
+    --cyan:#29c8ff;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'JetBrains Mono', monospace;
+    min-height:100vh; padding:16px;
+  }
+  .wrap{ max-width:1240px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+
+  header{
+    background:var(--panel); border:1px solid var(--grid-line); border-radius:6px;
+    padding:14px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;
+  }
+  header h1{
+    font-family:'Chakra Petch', sans-serif; font-weight:700; font-size:17px; letter-spacing:.1em; margin:0;
+  }
+  header h1 span{ color:var(--cyan); }
+  .hdr-right{ display:flex; align-items:center; gap:18px; font-size:11px; color:var(--text-dim); letter-spacing:.06em; }
+  .led{ width:7px; height:7px; border-radius:50%; background:var(--low); box-shadow:0 0 6px var(--low); display:inline-block; margin-right:6px; animation:blink 2s infinite steps(1); }
+  @keyframes blink{ 0%,49%{opacity:1;} 50%,100%{opacity:.25;} }
+
+  .disclaimer{
+    background:rgba(255,176,32,.08); border:1px solid rgba(255,176,32,.3); border-radius:6px;
+    padding:10px 16px; font-size:11px; color:#e8c584; line-height:1.6;
+  }
+  .disclaimer b{ color:var(--med); }
+
+  .grid{ display:grid; grid-template-columns:1.5fr 1fr; gap:14px; align-items:start; }
+  .panel{ background:var(--panel); border:1px solid var(--grid-line); border-radius:6px; padding:14px 16px; }
+  .panel-title{
+    font-family:'Chakra Petch', sans-serif; font-weight:600; letter-spacing:.14em; font-size:11px;
+    color:var(--text-dim); text-transform:uppercase; margin-bottom:10px; display:flex; justify-content:space-between;
+  }
+
+  #mapSvg{ width:100%; height:auto; display:block; }
+  .wb-shape{ fill:#0e1e26; stroke:#1d3a44; stroke-width:1.2; }
+  .marker{ cursor:pointer; }
+  .marker circle.dot{ transition:r .15s ease; }
+  .marker:hover circle.dot{ r:7; }
+  .marker text{
+    font-family:'JetBrains Mono', monospace; font-size:8px; fill:var(--text-dim);
+    pointer-events:none; text-anchor:middle;
+  }
+  .marker.selected circle.ring{ opacity:1; }
+  .ring{ fill:none; stroke:var(--cyan); stroke-width:1.2; opacity:0; animation:ripple 1.8s ease-out infinite; }
+  @keyframes ripple{ 0%{ r:6; opacity:.8; } 100%{ r:16; opacity:0; } }
+
+  .legend{ display:flex; gap:16px; font-size:10px; color:var(--text-dim); margin-top:10px; flex-wrap:wrap; }
+  .legend span::before{ content:''; display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+  .lg-low::before{ background:var(--low); } .lg-med::before{ background:var(--med); } .lg-high::before{ background:var(--high); }
+
+  /* ---- detail side panel ---- */
+  .placeholder{ color:var(--text-dim); font-size:12px; padding:20px 4px; }
+  .loc-name{ font-family:'Chakra Petch', sans-serif; font-weight:700; font-size:18px; margin-bottom:2px; }
+  .loc-coords{ font-size:10px; color:var(--text-dim); margin-bottom:14px; }
+
+  .wx-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:16px; }
+  .wx-tile{ background:rgba(0,0,0,.2); border:1px solid var(--grid-line); border-radius:5px; padding:9px 11px; }
+  .wx-tile .v{ font-family:'Chakra Petch', sans-serif; font-weight:700; font-size:17px; }
+  .wx-tile .l{ font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.08em; margin-top:2px; }
+
+  .risk-row{ display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--grid-line); font-size:12px; }
+  .risk-row:last-child{ border-bottom:none; }
+  .risk-badge{
+    font-family:'Chakra Petch', sans-serif; font-weight:700; font-size:10px; letter-spacing:.06em;
+    padding:3px 10px; border-radius:20px; text-transform:uppercase;
+  }
+  .risk-low{ background:rgba(0,230,118,.12); color:var(--low); }
+  .risk-med{ background:rgba(255,176,32,.14); color:var(--med); }
+  .risk-high{ background:rgba(255,59,92,.16); color:var(--high); }
+  .risk-na{ background:rgba(92,118,132,.15); color:var(--text-dim); }
+
+  .quake-list{ font-size:11px; max-height:170px; overflow-y:auto; }
+  .quake-item{ padding:7px 0; border-bottom:1px solid var(--grid-line); display:flex; justify-content:space-between; gap:8px; }
+  .quake-item:last-child{ border-bottom:none; }
+  .quake-mag{ font-family:'Chakra Petch', sans-serif; font-weight:700; min-width:36px; }
+  .quake-mag.big{ color:var(--high); }
+  .quake-place{ color:var(--text-dim); flex:1; }
+  .quake-time{ color:var(--text-dim); font-size:10px; white-space:nowrap; }
+
+  .loading{ color:var(--text-dim); font-size:11px; }
+
+  @media (max-width:860px){
+    .grid{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>METEO24 - REGIONAL DISASTER <span>MONITOR</span> — WEST BENGAL</h1>
+    <div class="hdr-right">
+      <div><span class="led"></span>LIVE DATA</div>
+      <div id="clock">--:--:--</div>
+    </div>
+  </header>
+
+  <div class="disclaimer">
+    <b>Prototype notice:</b> weather is live  and earthquakes are live (USGS). Flood, storm and tsunami
+    risk levels are simple heuristics calculated from that data for demonstration — this is not an official
+    warning system. 
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-title">
+        <span>West Bengal — click a district to inspect</span>
+        <span id="mapStatus" class="loading">Live:Meteo24</span>
+      </div>
+      <svg id="mapSvg" viewBox="0 0 500 600"></svg>
+      <div class="legend">
+        <span class="lg-low">low overall risk</span>
+        <span class="lg-med">moderate risk</span>
+        <span class="lg-high">elevated risk</span>
+      </div>
+    </div>
+
+    <div class="panel" id="detailPanel">
+      <div class="panel-title"><span>Location Detail</span></div>
+      <div class="placeholder" id="placeholderMsg">Click any district marker on the map to see live weather and disaster risk for that location.</div>
+      <div id="detailContent" style="display:none;">
+        <div class="loc-name" id="dName">—</div>
+        <div class="loc-coords" id="dCoords">—</div>
+
+        <div class="wx-grid">
+          <div class="wx-tile"><div class="v" id="wTemp">--°C</div><div class="l">temperature</div></div>
+          <div class="wx-tile"><div class="v" id="wRain">-- mm</div><div class="l">precip. right now</div></div>
+          <div class="wx-tile"><div class="v" id="wRainDay">-- mm</div><div class="l">total today</div></div>
+          <div class="wx-tile"><div class="v" id="wWind">-- km/h</div><div class="l">wind speed</div></div>
+          <div class="wx-tile"><div class="v" id="wHum">--%</div><div class="l">humidity</div></div>
+        </div>
+
+        <div class="panel-title" style="margin-top:2px;"><span>Disaster Risk Assessment</span></div>
+        <div class="risk-row"><span>Flood</span><span class="risk-badge" id="riskFlood">—</span></div>
+        <div class="risk-row"><span>Storm / Thunderstorm</span><span class="risk-badge" id="riskStorm">—</span></div>
+        <div class="risk-row"><span>High Tides (coastal)</span><span class="risk-badge" id="riskTsunami">—</span></div>
+        <div class="risk-row"><span>Earthquake activity</span><span class="risk-badge" id="riskQuake">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title"><span>Recent Regional Seismic Activity (USGS, last 30 days)</span><span id="quakeStatus" class="loading">loading…</span></div>
+    <div class="quake-list" id="quakeList"><div class="loading">Fetching earthquake feed…</div></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   REAL DATA SOURCES:
+   - Weather: Open-Meteo (https://open-meteo.com) — free, no API key
+   - Earthquakes: USGS Earthquake Feed — free, no API key
+   Risk levels below are simple, transparent heuristics for a demo
+   dashboard, not an official hazard model.
+   ============================================================ */
+
+// ---- clock ----
+function tick(){
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-GB');
+}
+setInterval(tick, 1000); tick();
+
+// ---- West Bengal boundary (simplified from real state geometry) ----
+const WB_PATH = "M 239.3 20.0 L 280.0 33.9 L 295.9 22.6 L 323.6 31.1 L 324.2 46.9 L 339.2 48.0 L 349.8 61.2 L 374.3 55.4 L 401.0 63.9 L 399.8 70.0 L 422.2 71.6 L 423.5 97.1 L 408.1 111.7 L 409.9 124.5 L 400.3 119.1 L 396.2 131.7 L 401.8 135.6 L 392.0 145.3 L 353.4 128.5 L 346.0 102.0 L 333.1 95.6 L 328.7 104.9 L 343.6 116.3 L 325.5 112.7 L 321.4 118.4 L 298.8 94.8 L 280.3 87.2 L 278.3 78.5 L 274.6 82.6 L 270.3 94.0 L 285.1 95.8 L 289.3 105.9 L 254.9 127.3 L 255.6 139.4 L 245.6 150.5 L 248.6 162.1 L 263.8 161.0 L 291.1 191.0 L 317.8 189.7 L 321.1 205.4 L 337.8 212.4 L 329.0 224.9 L 281.4 222.0 L 277.0 247.0 L 269.3 255.0 L 259.6 245.6 L 250.8 248.0 L 254.4 255.5 L 238.0 274.9 L 270.1 303.1 L 310.2 313.9 L 306.2 330.1 L 313.8 342.9 L 294.4 355.4 L 292.9 377.1 L 316.6 391.8 L 308.8 416.0 L 336.2 420.0 L 321.4 440.9 L 333.4 456.9 L 331.4 475.1 L 317.3 467.8 L 332.5 480.0 L 322.0 497.8 L 313.4 485.0 L 305.8 488.6 L 305.9 487.7 L 305.0 487.3 L 305.0 486.7 L 304.1 486.1 L 304.8 483.3 L 304.5 481.7 L 304.0 486.1 L 305.7 488.7 L 324.3 505.5 L 310.1 521.4 L 300.3 519.4 L 302.6 517.1 L 305.2 511.6 L 305.8 508.4 L 303.4 507.1 L 299.9 518.8 L 300.7 520.2 L 304.0 520.9 L 298.7 530.1 L 297.2 525.0 L 294.1 522.1 L 297.4 549.6 L 291.4 543.6 L 293.8 550.6 L 286.2 553.0 L 289.0 549.6 L 289.3 548.0 L 289.0 546.7 L 286.2 544.2 L 288.7 542.1 L 290.5 543.1 L 291.1 542.8 L 291.8 541.3 L 292.4 538.6 L 292.2 537.4 L 286.0 544.3 L 288.9 549.4 L 284.2 551.4 L 283.8 545.1 L 283.2 544.6 L 281.4 544.4 L 282.9 539.8 L 277.7 552.4 L 275.3 551.0 L 277.6 549.0 L 276.2 543.9 L 274.4 544.0 L 275.9 561.0 L 272.3 558.6 L 273.9 551.3 L 273.3 549.7 L 272.5 548.5 L 272.1 555.2 L 263.5 552.6 L 268.2 556.3 L 264.0 567.8 L 253.2 553.0 L 257.2 524.3 L 243.9 519.8 L 247.4 510.5 L 241.8 519.0 L 235.4 516.4 L 231.6 500.4 L 225.3 496.9 L 230.9 515.0 L 255.7 531.1 L 243.1 539.7 L 236.1 530.7 L 233.2 530.6 L 242.2 539.9 L 229.8 560.9 L 185.2 580.0 L 181.4 564.8 L 163.3 559.5 L 160.5 545.5 L 140.1 554.4 L 138.9 536.8 L 108.7 526.6 L 125.8 511.6 L 113.4 498.5 L 113.2 483.8 L 102.4 483.5 L 99.0 473.8 L 78.9 463.5 L 80.5 448.8 L 89.1 446.7 L 91.2 442.4 L 57.9 441.8 L 41.0 426.8 L 28.8 428.2 L 20.0 414.9 L 24.0 394.2 L 42.0 391.9 L 41.1 382.9 L 67.3 399.3 L 81.2 378.3 L 116.4 372.6 L 116.4 358.2 L 161.3 358.7 L 166.5 351.5 L 160.9 337.3 L 182.8 343.2 L 186.4 329.9 L 206.2 326.0 L 200.5 317.2 L 217.9 300.8 L 213.9 283.3 L 227.9 282.1 L 227.0 269.4 L 218.7 264.9 L 234.2 251.9 L 214.2 231.7 L 222.6 213.9 L 212.9 200.7 L 229.3 188.1 L 239.6 193.1 L 244.2 191.3 L 241.8 172.7 L 217.3 149.7 L 221.1 137.4 L 266.0 106.5 L 254.8 92.9 L 260.0 86.7 L 247.4 88.3 L 254.5 55.5 L 235.9 30.1 L 239.3 20.0 Z";
+
+// Real district/city coordinates, pre-projected into the same 500x600 SVG space as the boundary above
+const LOCATIONS = [
+  { name:"Darjeeling",       lat:27.0410, lon:88.2636, x:263.2, y:37.9,  coastal:false },
+  { name:"Siliguri",         lat:26.7271, lon:88.4297, x:279.8, y:69.3,  coastal:false },
+  { name:"Jalpaiguri",       lat:26.5417, lon:88.7196, x:308.7, y:87.8,  coastal:false },
+  { name:"Cooch Behar",      lat:26.3452, lon:89.4483, x:381.4, y:107.4, coastal:false },
+  { name:"Raiganj",          lat:25.6167, lon:88.1250, x:249.4, y:180.1, coastal:false },
+  { name:"Balurghat",        lat:25.2167, lon:88.7639, x:313.1, y:220.0, coastal:false },
+  { name:"Malda",            lat:25.0108, lon:88.1420, x:251.1, y:240.5, coastal:false },
+  { name:"Murshidabad",      lat:24.1000, lon:88.2500, x:261.8, y:331.4, coastal:false },
+  { name:"Krishnanagar",     lat:23.4058, lon:88.5019, x:287.0, y:400.7, coastal:false },
+  { name:"Bardhaman",        lat:23.2324, lon:87.8615, x:223.1, y:418.0, coastal:false },
+  { name:"Durgapur",         lat:23.5204, lon:87.3119, x:168.2, y:389.2, coastal:false },
+  { name:"Asansol",          lat:23.6739, lon:86.9524, x:132.4, y:373.9, coastal:false },
+  { name:"Purulia",          lat:23.3320, lon:86.3616, x:73.4,  y:408.0, coastal:false },
+  { name:"Bankura",          lat:23.2324, lon:87.0700, x:144.1, y:418.0, coastal:false },
+  { name:"Kolkata",          lat:22.5726, lon:88.3639, x:273.2, y:483.8, coastal:false },
+  { name:"Howrah",           lat:22.5958, lon:88.2636, x:263.2, y:481.5, coastal:false },
+  { name:"Kharagpur",        lat:22.3460, lon:87.3200, x:169.0, y:506.4, coastal:false },
+  { name:"Medinipur",        lat:22.4256, lon:87.3200, x:169.0, y:498.5, coastal:false },
+  { name:"Sundarbans (Canning)", lat:22.3167, lon:88.6667, x:303.4, y:509.4, coastal:true },
+  { name:"Digha",            lat:21.6273, lon:87.5085, x:187.9, y:578.1, coastal:true }
+];
+
+const svg = document.getElementById('mapSvg');
+
+// draw boundary
+const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+path.setAttribute('d', WB_PATH);
+path.setAttribute('class','wb-shape');
+svg.appendChild(path);
+
+let selectedGroup = null;
+
+function riskColor(level){
+  if (level === 'high') return getVar('--high');
+  if (level === 'med') return getVar('--med');
+  return getVar('--low');
+}
+function getVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+// draw markers
+LOCATIONS.forEach(loc => {
+  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.setAttribute('class','marker');
+  g.setAttribute('data-name', loc.name);
+
+  const ring = document.createElementNS('http://www.w3.org/2000/svg','circle');
+  ring.setAttribute('cx', loc.x); ring.setAttribute('cy', loc.y);
+  ring.setAttribute('r', 6); ring.setAttribute('class','ring');
+
+  const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+  dot.setAttribute('cx', loc.x); dot.setAttribute('cy', loc.y);
+  dot.setAttribute('r', 5); dot.setAttribute('class','dot');
+  dot.setAttribute('fill', getVar('--low'));
+  dot.setAttribute('stroke', '#04120a');
+  dot.setAttribute('stroke-width', '1');
+
+  const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+  label.setAttribute('x', loc.x); label.setAttribute('y', loc.y - 9);
+  label.textContent = loc.name.split(' (')[0];
+
+  g.appendChild(ring); g.appendChild(dot); g.appendChild(label);
+  g.addEventListener('click', () => selectLocation(loc, g));
+  svg.appendChild(g);
+
+  loc._dotEl = dot;
+  loc._groupEl = g;
+});
+
+/* ============================================================
+   WEATHER — fetch current conditions for every district in one
+   batched Open-Meteo request, used to color-code the whole map.
+   ============================================================ */
+async function loadAllWeather(){
+  const lats = LOCATIONS.map(l => l.lat).join(',');
+  const lons = LOCATIONS.map(l => l.lon).join(',');
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_gusts_10m&daily=precipitation_sum&timezone=auto`;
+
+  try{
+    const res = await fetch(url);
+    const data = await res.json();
+    const arr = Array.isArray(data) ? data : [data];
+
+    arr.forEach((entry, i) => {
+      const loc = LOCATIONS[i];
+      loc.weather = entry.current;
+      loc.todayPrecip = entry.daily?.precipitation_sum?.[0] ?? null;
+      const risk = computeRisk(loc);
+      loc.risk = risk;
+      loc._dotEl.setAttribute('fill', riskColor(risk.overall));
+    });
+
+    document.getElementById('mapStatus').textContent = 'live · Meteo24';
+  } catch(err){
+    document.getElementById('mapStatus').textContent = 'weather feed unavailable';
+    console.error('Weather fetch failed', err);
+  }
+}
+
+function computeRisk(loc){
+  const w = loc.weather;
+  if (!w) return { flood:'na', storm:'na', tsunami:'na', overall:'low' };
+
+  // Flood: today's accumulated rainfall + humidity heuristic (daily total is more meaningful than the instantaneous reading)
+  const dailyRain = loc.todayPrecip ?? w.precipitation;
+  let flood = 'low';
+  if (dailyRain >= 40 || (dailyRain > 10 && w.relative_humidity_2m >= 88)) flood = 'high';
+  else if (dailyRain >= 10 || w.relative_humidity_2m >= 78) flood = 'med';
+
+  // Storm / tornado: wind gust heuristic
+  const gust = w.wind_gusts_10m ?? w.wind_speed_10m;
+  let storm = 'low';
+  if (gust >= 50) storm = 'high';
+  else if (gust >= 30) storm = 'med';
+
+  // Tsunami: only meaningful for coastal points, tied to nearby seismic activity (filled in after quake fetch)
+  let tsunami = loc.coastal ? 'low' : 'na';
+
+  const levels = [flood, storm, tsunami].filter(l => l !== 'na');
+  const overall = levels.includes('high') ? 'high' : levels.includes('med') ? 'med' : 'low';
+
+  return { flood, storm, tsunami, overall };
+}
+
+/* ============================================================
+   EARTHQUAKES — real USGS feed, bounding box around West Bengal
+   + the Himalayan front + Bay of Bengal (relevant to tsunami risk)
+   ============================================================ */
+let recentQuakes = [];
+
+async function loadQuakes(){
+  const end = new Date();
+  const start = new Date(end.getTime() - 30*24*3600*1000);
+  const fmt = d => d.toISOString().slice(0,10);
+  const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${fmt(start)}&endtime=${fmt(end)}&minlatitude=18&maxlatitude=29&minlongitude=84&maxlongitude=93&minmagnitude=3&orderby=time`;
+
+  try{
+    const res = await fetch(url);
+    const data = await res.json();
+    recentQuakes = data.features.map(f => ({
+      mag: f.properties.mag,
+      place: f.properties.place,
+      time: new Date(f.properties.time),
+      lat: f.geometry.coordinates[1],
+      lon: f.geometry.coordinates[0]
+    }));
+
+    renderQuakeList();
+    applyQuakeInfluence();
+    document.getElementById('quakeStatus').textContent = `live · USGS · ${recentQuakes.length} events`;
+  } catch(err){
+    document.getElementById('quakeStatus').textContent = 'seismic feed unavailable';
+    document.getElementById('quakeList').innerHTML = '<div class="loading">Could not load earthquake data.</div>';
+    console.error('USGS fetch failed', err);
+  }
+}
+
+function renderQuakeList(){
+  const el = document.getElementById('quakeList');
+  if (recentQuakes.length === 0){
+    el.innerHTML = '<div class="loading">No magnitude 3+ earthquakes recorded in this region in the last 30 days.</div>';
+    return;
+  }
+  el.innerHTML = recentQuakes.slice(0, 25).map(q => `
+    <div class="quake-item">
+      <span class="quake-mag ${q.mag >= 5 ? 'big' : ''}">M${q.mag.toFixed(1)}</span>
+      <span class="quake-place">${q.place}</span>
+      <span class="quake-time">${q.time.toLocaleDateString()}</span>
+    </div>
+  `).join('');
+}
+
+function haversineKm(lat1, lon1, lat2, lon2){
+  const R = 6371;
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLon = (lon2-lon1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// Use real nearby seismic activity to inform each location's earthquake + tsunami risk
+function applyQuakeInfluence(){
+  LOCATIONS.forEach(loc => {
+    const nearby = recentQuakes.filter(q => haversineKm(loc.lat, loc.lon, q.lat, q.lon) <= 300);
+    const maxMag = nearby.reduce((m,q) => Math.max(m,q.mag), 0);
+
+    loc.quakeRisk = maxMag >= 5.5 ? 'high' : maxMag >= 4 ? 'med' : 'low';
+
+    if (loc.coastal){
+      const bayQuakes = recentQuakes.filter(q => q.lat < 24 && q.lon > 86 && q.mag >= 5.5);
+      loc.risk.tsunami = bayQuakes.length > 0 ? 'high' : 'low';
+    }
+
+    if (loc.risk){
+      const levels = [loc.risk.flood, loc.risk.storm, loc.risk.tsunami, loc.quakeRisk].filter(l => l && l !== 'na');
+      loc.risk.overall = levels.includes('high') ? 'high' : levels.includes('med') ? 'med' : 'low';
+      loc._dotEl.setAttribute('fill', riskColor(loc.risk.overall));
+    }
+  });
+
+  // refresh side panel if a location is already selected
+  if (selectedGroup) renderDetail(selectedGroup._loc);
+}
+
+/* ============================================================
+   SELECTION + DETAIL PANEL
+   ============================================================ */
+function selectLocation(loc, g){
+  document.querySelectorAll('.marker').forEach(m => m.classList.remove('selected'));
+  g.classList.add('selected');
+  g._loc = loc;
+  selectedGroup = g;
+  renderDetail(loc);
+}
+
+function badge(level){
+  const map = { low:'risk-low', med:'risk-med', high:'risk-high', na:'risk-na' };
+  const label = { low:'Low', med:'Moderate', high:'Elevated', na:'N/A · inland' };
+  return `<span class="risk-badge ${map[level]||'risk-na'}">${label[level]||'—'}</span>`;
+}
+
+function renderDetail(loc){
+  document.getElementById('placeholderMsg').style.display = 'none';
+  document.getElementById('detailContent').style.display = 'block';
+
+  document.getElementById('dName').textContent = loc.name;
+  document.getElementById('dCoords').textContent = `${loc.lat.toFixed(3)}°N, ${loc.lon.toFixed(3)}°E`;
+
+  const w = loc.weather;
+  document.getElementById('wTemp').textContent = w ? `${w.temperature_2m}°C` : '—';
+  document.getElementById('wRain').textContent = w ? `${w.precipitation} mm` : '—';
+  document.getElementById('wRainDay').textContent = (loc.todayPrecip !== null && loc.todayPrecip !== undefined) ? `${loc.todayPrecip} mm` : '—';
+  document.getElementById('wWind').textContent = w ? `${Math.round(w.wind_speed_10m)} km/h` : '—';
+  document.getElementById('wHum').textContent = w ? `${w.relative_humidity_2m}%` : '—';
+
+  const r = loc.risk || {};
+  setRisk('riskFlood', r.flood);
+  setRisk('riskStorm', r.storm);
+  setRisk('riskTsunami', loc.coastal ? r.tsunami : 'na');
+  setRisk('riskQuake', loc.quakeRisk || 'low');
+}
+
+function setRisk(id, level){
+  const el = document.getElementById(id);
+  const map = { low:'risk-low', med:'risk-med', high:'risk-high', na:'risk-na' };
+  const label = { low:'Low', med:'Moderate', high:'Elevated', na:'N/A · inland' };
+  el.className = `risk-badge ${map[level] || 'risk-na'}`;
+  el.textContent = label[level] || '—';
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+loadAllWeather();
+loadQuakes();
+setInterval(loadAllWeather, 5 * 60 * 1000);   // refresh weather every 5 min
+setInterval(loadQuakes, 10 * 60 * 1000);      // refresh quakes every 10 min
+</script>
+</body>
+</html>
