@@ -84,7 +84,7 @@ No installation or server setup required.
 ```
 METEO24/
 │
-├── meteo24-code.html
+├── index.html
 ├── README.md
 ├── METEO24.png
 ```
