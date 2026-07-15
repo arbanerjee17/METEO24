@@ -4,6 +4,9 @@ A Regional Disaster Management Monitor which extracts data from open weather dat
 Built using **HTML**, **CSS**, **JavaScript**, **SVG**, **Open-Meteo API**, and **USGS Earthquake API**.
 
 ---
+# Live Preview 
+<img width="1920" height="853" alt="METEO24" src="https://github.com/user-attachments/assets/5e639a08-8827-4ff0-9dd0-72b8bc4a2326" />
+
 
 # ✨ Key Features
 
