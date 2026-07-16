@@ -17,6 +17,7 @@
     --med:#ffb020;
     --high:#ff3b5c;
     --cyan:#29c8ff;
+    --quake:#3b82f6;
   }
   *{box-sizing:border-box;}
   body{
@@ -55,10 +56,11 @@
   .wb-shape{ fill:#0e1e26; stroke:#1d3a44; stroke-width:1.2; }
   .marker{ cursor:pointer; }
   .marker circle.dot{ transition:r .15s ease; }
-  .marker:hover circle.dot{ r:7; }
+  .marker:hover circle.dot{ r:4.5; }
   .marker text{
-    font-family:'JetBrains Mono', monospace; font-size:8px; fill:var(--text-dim);
+    font-family:'JetBrains Mono', monospace; font-size:4px; font-weight:500; fill:var(--text);
     pointer-events:none; text-anchor:middle;
+    paint-order:stroke; stroke:var(--bg); stroke-width:1.5px; stroke-linejoin:round;
   }
   .marker.selected circle.ring{ opacity:1; }
   .ring{ fill:none; stroke:var(--cyan); stroke-width:1.2; opacity:0; animation:ripple 1.8s ease-out infinite; }
@@ -90,12 +92,28 @@
   .risk-na{ background:rgba(92,118,132,.15); color:var(--text-dim); }
 
   .quake-list{ font-size:11px; max-height:170px; overflow-y:auto; }
-  .quake-item{ padding:7px 0; border-bottom:1px solid var(--grid-line); display:flex; justify-content:space-between; gap:8px; }
+  .quake-item{ padding:7px 0; border-bottom:1px solid var(--grid-line); display:flex; justify-content:space-between; gap:8px; align-items:center; flex-wrap:wrap; }
   .quake-item:last-child{ border-bottom:none; }
-  .quake-mag{ font-family:'Chakra Petch', sans-serif; font-weight:700; min-width:36px; }
+  .quake-mag{ font-family:'Chakra Petch', sans-serif; font-weight:700; min-width:36px; color:var(--high); }
   .quake-mag.big{ color:var(--high); }
   .quake-place{ color:var(--text-dim); flex:1; }
+  .quake-coords{ color:var(--text-dim); font-size:10px; white-space:nowrap; }
   .quake-time{ color:var(--text-dim); font-size:10px; white-space:nowrap; }
+
+  /* ---- epicenter markers on the map ---- */
+  .epicenter{ cursor:pointer; }
+  .epicenter .epi-dot{ fill:var(--quake); stroke:#0a1930; stroke-width:1; transition:r .15s ease; }
+  .epicenter:hover .epi-dot{ r:6; }
+  .epicenter.selected .epi-dot{ stroke:#fff; stroke-width:1.5; }
+  .epi-pulse{ fill:none; stroke:var(--quake); stroke-width:1.2; opacity:0; }
+  .epicenter.selected .epi-pulse{ opacity:.85; animation:ripple 1.4s ease-out infinite; }
+
+  .distance-row{
+    display:none; align-items:center; justify-content:space-between;
+    background:rgba(41,200,255,.08); border:1px solid rgba(41,200,255,.3); border-radius:5px;
+    padding:8px 12px; margin-bottom:14px; font-size:12px;
+  }
+  .distance-row .val{ font-family:'Chakra Petch', sans-serif; font-weight:700; color:var(--cyan); font-size:14px; }
 
   .loading{ color:var(--text-dim); font-size:11px; }
 
@@ -116,9 +134,11 @@
   </header>
 
   <div class="disclaimer">
-    <b>Prototype notice:</b> weather is live  and earthquakes are live (USGS). Flood, storm and tsunami
-    risk levels are simple heuristics calculated from that data for demonstration — this is not an official
-    warning system. 
+    <b>Prototype notice:</b> weather is live. Earthquakes are checked live against USGS within a 500km radius of
+    West Bengal's approximate geographic centre (last 30 days) — widened from a smaller radius because the
+    state's own plains are seismically quiet; 500km reaches the nearby active belts (Himalayan front,
+    Assam/Bangladesh, Andaman/Bay of Bengal) where most real regional activity actually occurs. Flood, storm and
+    tsunami risk levels elsewhere are simple heuristics for demonstration — this is not an official warning system.
   </div>
 
   <div class="grid">
@@ -127,20 +147,36 @@
         <span>West Bengal — click a district to inspect</span>
         <span id="mapStatus" class="loading">Live:Meteo24</span>
       </div>
-      <svg id="mapSvg" viewBox="0 0 500 600"></svg>
+      <svg id="mapSvg" viewBox="100 55 275 310"></svg>
       <div class="legend">
         <span class="lg-low">low overall risk</span>
         <span class="lg-med">moderate risk</span>
         <span class="lg-high">elevated risk</span>
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--quake);margin-right:5px;vertical-align:middle;"></span>earthquake epicenter</span>
       </div>
+      <div style="font-size:10px; color:var(--text-dim); margin-top:6px;">Tip: click a blue epicenter to see earthquake details, then click a district marker to see the distance between them.</div>
     </div>
 
     <div class="panel" id="detailPanel">
       <div class="panel-title"><span>Location Detail</span></div>
-      <div class="placeholder" id="placeholderMsg">Click any district marker on the map to see live weather and disaster risk for that location.</div>
+      <div class="placeholder" id="placeholderMsg">Click a blue epicenter to see earthquake details, or click any district marker to see live weather and disaster risk for that location.</div>
+
+      <div id="epicenterInfo" style="display:none; margin-bottom:16px;">
+        <div class="loc-name" id="eqLabel">Earthquake</div>
+        <div class="risk-row"><span>Magnitude</span><span id="eqMag" style="font-family:'Chakra Petch',sans-serif;font-weight:700;color:var(--quake);">—</span></div>
+        <div class="risk-row"><span>Location</span><span id="eqPlace" style="text-align:right;max-width:60%;color:var(--text-dim);font-size:11px;">—</span></div>
+        <div class="risk-row"><span>Date</span><span id="eqDate">—</span></div>
+        <div class="risk-row"><span>Time</span><span id="eqTime">—</span></div>
+      </div>
+
       <div id="detailContent" style="display:none;">
         <div class="loc-name" id="dName">—</div>
         <div class="loc-coords" id="dCoords">—</div>
+
+        <div class="distance-row" id="distanceRow">
+          <span>Distance from <span id="distQuakeMag">—</span></span>
+          <span class="val" id="distanceVal">— km</span>
+        </div>
 
         <div class="wx-grid">
           <div class="wx-tile"><div class="v" id="wTemp">--°C</div><div class="l">temperature</div></div>
@@ -181,33 +217,78 @@ function tick(){
 setInterval(tick, 1000); tick();
 
 // ---- West Bengal boundary (simplified from real state geometry) ----
-const WB_PATH = "M 239.3 20.0 L 280.0 33.9 L 295.9 22.6 L 323.6 31.1 L 324.2 46.9 L 339.2 48.0 L 349.8 61.2 L 374.3 55.4 L 401.0 63.9 L 399.8 70.0 L 422.2 71.6 L 423.5 97.1 L 408.1 111.7 L 409.9 124.5 L 400.3 119.1 L 396.2 131.7 L 401.8 135.6 L 392.0 145.3 L 353.4 128.5 L 346.0 102.0 L 333.1 95.6 L 328.7 104.9 L 343.6 116.3 L 325.5 112.7 L 321.4 118.4 L 298.8 94.8 L 280.3 87.2 L 278.3 78.5 L 274.6 82.6 L 270.3 94.0 L 285.1 95.8 L 289.3 105.9 L 254.9 127.3 L 255.6 139.4 L 245.6 150.5 L 248.6 162.1 L 263.8 161.0 L 291.1 191.0 L 317.8 189.7 L 321.1 205.4 L 337.8 212.4 L 329.0 224.9 L 281.4 222.0 L 277.0 247.0 L 269.3 255.0 L 259.6 245.6 L 250.8 248.0 L 254.4 255.5 L 238.0 274.9 L 270.1 303.1 L 310.2 313.9 L 306.2 330.1 L 313.8 342.9 L 294.4 355.4 L 292.9 377.1 L 316.6 391.8 L 308.8 416.0 L 336.2 420.0 L 321.4 440.9 L 333.4 456.9 L 331.4 475.1 L 317.3 467.8 L 332.5 480.0 L 322.0 497.8 L 313.4 485.0 L 305.8 488.6 L 305.9 487.7 L 305.0 487.3 L 305.0 486.7 L 304.1 486.1 L 304.8 483.3 L 304.5 481.7 L 304.0 486.1 L 305.7 488.7 L 324.3 505.5 L 310.1 521.4 L 300.3 519.4 L 302.6 517.1 L 305.2 511.6 L 305.8 508.4 L 303.4 507.1 L 299.9 518.8 L 300.7 520.2 L 304.0 520.9 L 298.7 530.1 L 297.2 525.0 L 294.1 522.1 L 297.4 549.6 L 291.4 543.6 L 293.8 550.6 L 286.2 553.0 L 289.0 549.6 L 289.3 548.0 L 289.0 546.7 L 286.2 544.2 L 288.7 542.1 L 290.5 543.1 L 291.1 542.8 L 291.8 541.3 L 292.4 538.6 L 292.2 537.4 L 286.0 544.3 L 288.9 549.4 L 284.2 551.4 L 283.8 545.1 L 283.2 544.6 L 281.4 544.4 L 282.9 539.8 L 277.7 552.4 L 275.3 551.0 L 277.6 549.0 L 276.2 543.9 L 274.4 544.0 L 275.9 561.0 L 272.3 558.6 L 273.9 551.3 L 273.3 549.7 L 272.5 548.5 L 272.1 555.2 L 263.5 552.6 L 268.2 556.3 L 264.0 567.8 L 253.2 553.0 L 257.2 524.3 L 243.9 519.8 L 247.4 510.5 L 241.8 519.0 L 235.4 516.4 L 231.6 500.4 L 225.3 496.9 L 230.9 515.0 L 255.7 531.1 L 243.1 539.7 L 236.1 530.7 L 233.2 530.6 L 242.2 539.9 L 229.8 560.9 L 185.2 580.0 L 181.4 564.8 L 163.3 559.5 L 160.5 545.5 L 140.1 554.4 L 138.9 536.8 L 108.7 526.6 L 125.8 511.6 L 113.4 498.5 L 113.2 483.8 L 102.4 483.5 L 99.0 473.8 L 78.9 463.5 L 80.5 448.8 L 89.1 446.7 L 91.2 442.4 L 57.9 441.8 L 41.0 426.8 L 28.8 428.2 L 20.0 414.9 L 24.0 394.2 L 42.0 391.9 L 41.1 382.9 L 67.3 399.3 L 81.2 378.3 L 116.4 372.6 L 116.4 358.2 L 161.3 358.7 L 166.5 351.5 L 160.9 337.3 L 182.8 343.2 L 186.4 329.9 L 206.2 326.0 L 200.5 317.2 L 217.9 300.8 L 213.9 283.3 L 227.9 282.1 L 227.0 269.4 L 218.7 264.9 L 234.2 251.9 L 214.2 231.7 L 222.6 213.9 L 212.9 200.7 L 229.3 188.1 L 239.6 193.1 L 244.2 191.3 L 241.8 172.7 L 217.3 149.7 L 221.1 137.4 L 266.0 106.5 L 254.8 92.9 L 260.0 86.7 L 247.4 88.3 L 254.5 55.5 L 235.9 30.1 L 239.3 20.0 Z";
+const WB_PATH = "M 253.6 78.0 L 272.4 84.4 L 279.8 79.2 L 292.5 83.1 L 292.8 90.4 L 299.7 90.9 L 304.6 97.0 L 315.9 94.3 L 328.3 98.2 L 327.7 101.1 L 338.0 101.8 L 338.6 113.5 L 331.5 120.3 L 332.4 126.2 L 327.9 123.7 L 326.1 129.5 L 328.6 131.3 L 324.1 135.8 L 306.3 128.0 L 302.9 115.8 L 296.9 112.9 L 294.9 117.2 L 301.8 122.4 L 293.4 120.8 L 291.5 123.4 L 281.1 112.5 L 272.6 109.0 L 271.7 105.0 L 269.9 106.9 L 267.9 112.2 L 274.8 113.0 L 276.7 117.6 L 260.8 127.5 L 261.1 133.1 L 256.5 138.2 L 257.9 143.6 L 265.0 143.0 L 277.5 156.9 L 289.8 156.3 L 291.4 163.6 L 299.1 166.8 L 295.0 172.5 L 273.1 171.2 L 271.0 182.7 L 267.5 186.4 L 263.0 182.1 L 259.0 183.2 L 260.6 186.6 L 253.0 195.6 L 267.9 208.6 L 286.4 213.6 L 284.5 221.1 L 288.0 227.0 L 279.1 232.7 L 278.4 242.8 L 289.3 249.5 L 285.7 260.7 L 298.3 262.6 L 291.5 272.2 L 297.1 279.6 L 296.2 288.0 L 289.6 284.6 L 296.6 290.3 L 291.8 298.4 L 287.8 292.6 L 284.3 294.2 L 284.4 293.8 L 284.0 293.6 L 283.9 293.3 L 283.5 293.1 L 283.9 291.8 L 283.7 291.1 L 283.5 293.1 L 284.3 294.2 L 292.9 302.0 L 286.3 309.4 L 281.8 308.4 L 282.8 307.4 L 284.1 304.8 L 284.3 303.3 L 283.2 302.8 L 281.6 308.2 L 282.0 308.8 L 283.5 309.1 L 281.0 313.4 L 280.4 311.0 L 278.9 309.7 L 280.5 322.4 L 277.7 319.6 L 278.8 322.8 L 275.3 323.9 L 276.6 322.4 L 276.7 321.6 L 276.6 321.0 L 275.3 319.9 L 276.4 318.9 L 277.3 319.4 L 277.6 319.2 L 277.9 318.6 L 278.2 317.3 L 278.1 316.7 L 275.2 319.9 L 276.5 322.3 L 274.3 323.2 L 274.2 320.3 L 273.9 320.1 L 273.1 319.9 L 273.8 317.8 L 271.4 323.7 L 270.2 323.0 L 271.3 322.1 L 270.7 319.7 L 269.8 319.8 L 270.5 327.6 L 268.9 326.5 L 269.6 323.1 L 269.3 322.4 L 268.9 321.9 L 268.8 325.0 L 264.8 323.7 L 267.0 325.4 L 265.1 330.8 L 260.1 323.9 L 261.9 310.7 L 255.7 308.6 L 257.4 304.3 L 254.8 308.2 L 251.8 307.1 L 250.1 299.7 L 247.2 298.0 L 249.8 306.4 L 261.2 313.8 L 255.4 317.8 L 252.2 313.7 L 250.8 313.6 L 255.0 317.9 L 249.3 327.6 L 228.7 336.4 L 226.9 329.4 L 218.6 326.9 L 217.3 320.5 L 207.9 324.6 L 207.3 316.5 L 193.4 311.8 L 201.2 304.8 L 195.5 298.8 L 195.4 292.0 L 190.4 291.9 L 188.9 287.4 L 179.6 282.6 L 180.4 275.9 L 184.3 274.9 L 185.3 272.9 L 169.9 272.6 L 162.1 265.7 L 156.5 266.4 L 152.4 260.2 L 154.3 250.7 L 162.6 249.6 L 162.2 245.5 L 174.3 253.0 L 180.7 243.3 L 196.9 240.7 L 196.9 234.1 L 217.7 234.3 L 220.0 231.0 L 217.4 224.4 L 227.6 227.1 L 229.2 221.0 L 238.4 219.2 L 235.8 215.1 L 243.8 207.6 L 241.9 199.5 L 248.4 198.9 L 248.0 193.1 L 244.2 191.0 L 251.3 185.0 L 242.1 175.7 L 245.9 167.4 L 241.5 161.4 L 249.0 155.6 L 253.8 157.9 L 255.9 157.0 L 254.8 148.4 L 243.5 137.8 L 245.3 132.1 L 266.0 117.9 L 260.8 111.6 L 263.2 108.8 L 257.4 109.5 L 260.6 94.4 L 252.1 82.7 L 253.6 78.0 Z";
 
-// Real district/city coordinates, pre-projected into the same 500x600 SVG space as the boundary above
+// Real district/city coordinates, pre-projected into the same 500x600 SVG space as the boundary above.
+// A few very close pairs (Kolkata/Howrah, Kharagpur/Medinipur) have their x/y nudged a couple of
+// pixels apart purely so the dots and labels don't sit on top of each other — lat/lon (used for the
+// live weather lookup and all distance-to-epicenter math) are untouched and stay at the real values.
 const LOCATIONS = [
-  { name:"Darjeeling",       lat:27.0410, lon:88.2636, x:263.2, y:37.9,  coastal:false },
-  { name:"Siliguri",         lat:26.7271, lon:88.4297, x:279.8, y:69.3,  coastal:false },
-  { name:"Jalpaiguri",       lat:26.5417, lon:88.7196, x:308.7, y:87.8,  coastal:false },
-  { name:"Cooch Behar",      lat:26.3452, lon:89.4483, x:381.4, y:107.4, coastal:false },
-  { name:"Raiganj",          lat:25.6167, lon:88.1250, x:249.4, y:180.1, coastal:false },
-  { name:"Balurghat",        lat:25.2167, lon:88.7639, x:313.1, y:220.0, coastal:false },
-  { name:"Malda",            lat:25.0108, lon:88.1420, x:251.1, y:240.5, coastal:false },
-  { name:"Murshidabad",      lat:24.1000, lon:88.2500, x:261.8, y:331.4, coastal:false },
-  { name:"Krishnanagar",     lat:23.4058, lon:88.5019, x:287.0, y:400.7, coastal:false },
-  { name:"Bardhaman",        lat:23.2324, lon:87.8615, x:223.1, y:418.0, coastal:false },
-  { name:"Durgapur",         lat:23.5204, lon:87.3119, x:168.2, y:389.2, coastal:false },
-  { name:"Asansol",          lat:23.6739, lon:86.9524, x:132.4, y:373.9, coastal:false },
-  { name:"Purulia",          lat:23.3320, lon:86.3616, x:73.4,  y:408.0, coastal:false },
-  { name:"Bankura",          lat:23.2324, lon:87.0700, x:144.1, y:418.0, coastal:false },
-  { name:"Kolkata",          lat:22.5726, lon:88.3639, x:273.2, y:483.8, coastal:false },
-  { name:"Howrah",           lat:22.5958, lon:88.2636, x:263.2, y:481.5, coastal:false },
-  { name:"Kharagpur",        lat:22.3460, lon:87.3200, x:169.0, y:506.4, coastal:false },
-  { name:"Medinipur",        lat:22.4256, lon:87.3200, x:169.0, y:498.5, coastal:false },
-  { name:"Sundarbans (Canning)", lat:22.3167, lon:88.6667, x:303.4, y:509.4, coastal:true },
-  { name:"Digha",            lat:21.6273, lon:87.5085, x:187.9, y:578.1, coastal:true }
+  { name:"Darjeeling", lat:27.041, lon:88.2636, x:264.7, y:86.3, coastal:false, ldx:0, ldy:-10, anchor:'middle' },
+  { name:"Siliguri", lat:26.7271, lon:88.4297, x:272.3, y:100.7, coastal:false, ldx:10, ldy:5, anchor:'start' },
+  { name:"Jalpaiguri", lat:26.5417, lon:88.7196, x:285.7, y:109.3, coastal:false, ldx:10, ldy:5, anchor:'start' },
+  { name:"Cooch Behar", lat:26.3452, lon:89.4483, x:319.2, y:118.3, coastal:false, ldx:0, ldy:-10, anchor:'middle' },
+  { name:"Raiganj", lat:25.6167, lon:88.125, x:258.3, y:151.8, coastal:false, ldx:-8, ldy:-8, anchor:'end' },
+  { name:"Balurghat", lat:25.2167, lon:88.7639, x:287.7, y:170.3, coastal:false, ldx:10, ldy:5, anchor:'start' },
+  { name:"Malda", lat:25.0108, lon:88.142, x:259.1, y:179.7, coastal:false, ldx:-8, ldy:10, anchor:'end' },
+  { name:"Murshidabad", lat:24.1, lon:88.25, x:264.0, y:221.7, coastal:false, ldx:0, ldy:-10, anchor:'middle' },
+  { name:"Krishnanagar", lat:23.4058, lon:88.5019, x:275.6, y:253.6, coastal:false, ldx:10, ldy:3, anchor:'start' },
+  { name:"Bardhaman", lat:23.2324, lon:87.8615, x:246.2, y:261.6, coastal:false, ldx:0, ldy:-9, anchor:'middle' },
+  { name:"Durgapur", lat:23.5204, lon:87.3119, x:220.8, y:248.4, coastal:false, ldx:8, ldy:12, anchor:'start' },
+  { name:"Asansol", lat:23.6739, lon:86.9524, x:204.3, y:241.3, coastal:false, ldx:-8, ldy:-9, anchor:'end' },
+  { name:"Purulia", lat:23.332, lon:86.3616, x:177.1, y:257.0, coastal:false, ldx:-8, ldy:-8, anchor:'end' },
+  { name:"Bankura", lat:23.2324, lon:87.07, x:209.7, y:261.6, coastal:false, ldx:0, ldy:14, anchor:'middle' },
+  { name:"Kolkata", lat:22.5726, lon:88.3639, x:272.0, y:293.0, coastal:false, ldx:9, ldy:3, anchor:'start' },
+  { name:"Howrah", lat:22.5958, lon:88.2636, x:262.0, y:289.5, coastal:false, ldx:-9, ldy:-3, anchor:'end' },
+  { name:"Kharagpur", lat:22.346, lon:87.32, x:224.0, y:307.0, coastal:false, ldx:0, ldy:14, anchor:'middle' },
+  { name:"Medinipur", lat:22.4256, lon:87.32, x:218.0, y:294.0, coastal:false, ldx:0, ldy:-10, anchor:'middle' },
+  { name:"Sundarbans (Canning)", lat:22.3167, lon:88.6667, x:283.2, y:303.8, coastal:true, ldx:10, ldy:-6, anchor:'start' },
+  { name:"Digha", lat:21.6273, lon:87.5085, x:229.9, y:335.5, coastal:true, ldx:0, ldy:14, anchor:'middle' }
 ];
 
 const svg = document.getElementById('mapSvg');
+
+// Same projection used to build WB_PATH and the district marker coordinates above,
+// so anything else (like earthquake epicenters) plotted with this stays aligned.
+// Zoomed out beyond just West Bengal's own shape so epicenters within the wider
+// 500km search radius (which extends past the state's borders) are visible
+// instead of being clipped outside the map's viewBox.
+const PROJ = {
+  minx: 82.95, maxx: 92.94,
+  miny: 19.35, maxy: 28.48,
+  pad: 20, VB_W: 500, VB_H: 600
+};
+PROJ.scale = Math.min(
+  (PROJ.VB_W - 2*PROJ.pad) / (PROJ.maxx - PROJ.minx),
+  (PROJ.VB_H - 2*PROJ.pad) / (PROJ.maxy - PROJ.miny)
+);
+function projectLatLon(lat, lon){
+  const x = (lon - PROJ.minx) * PROJ.scale + PROJ.pad;
+  const y = (PROJ.maxy - lat) * PROJ.scale + PROJ.pad;
+  return { x, y };
+}
+
+// The map's <svg> viewBox is now zoomed in tight around the district cluster
+// (see #mapSvg viewBox in the HTML above), which is a cropped window onto
+// this same full canvas — not the whole 0..500 / 0..600 space anymore.
+// Earthquakes from the live USGS feed can land well outside that crop (the
+// 500km search radius reaches the Himalayan front, Assam/Bangladesh, and the
+// Bay of Bengal), so their marker position is clamped to just inside the
+// visible crop edges rather than the old, much larger canvas bounds — this
+// is what keeps every epicenter dot inside the visible frame.
+const VIEW = { minx: 100, maxx: 375, miny: 55, maxy: 365 };
+const EPI_MARGIN = 12;
+function projectLatLonClamped(lat, lon){
+  const { x, y } = projectLatLon(lat, lon);
+  return {
+    x: Math.min(Math.max(x, VIEW.minx + EPI_MARGIN), VIEW.maxx - EPI_MARGIN),
+    y: Math.min(Math.max(y, VIEW.miny + EPI_MARGIN), VIEW.maxy - EPI_MARGIN)
+  };
+}
+
+// Approximate geographic centre of West Bengal (polygon centroid), used as the
+// origin for the 50km-radius earthquake search below.
+const WB_CENTRE = { lat: 23.9161, lon: 87.9438 };
 
 // draw boundary
 const path = document.createElementNS('http://www.w3.org/2000/svg','path');
@@ -216,6 +297,8 @@ path.setAttribute('class','wb-shape');
 svg.appendChild(path);
 
 let selectedGroup = null;
+let selectedLocation = null;
+let selectedQuake = null;
 
 function riskColor(level){
   if (level === 'high') return getVar('--high');
@@ -232,17 +315,19 @@ LOCATIONS.forEach(loc => {
 
   const ring = document.createElementNS('http://www.w3.org/2000/svg','circle');
   ring.setAttribute('cx', loc.x); ring.setAttribute('cy', loc.y);
-  ring.setAttribute('r', 6); ring.setAttribute('class','ring');
+  ring.setAttribute('r', 4); ring.setAttribute('class','ring');
 
   const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
   dot.setAttribute('cx', loc.x); dot.setAttribute('cy', loc.y);
-  dot.setAttribute('r', 5); dot.setAttribute('class','dot');
+  dot.setAttribute('r', 3); dot.setAttribute('class','dot');
   dot.setAttribute('fill', getVar('--low'));
   dot.setAttribute('stroke', '#04120a');
   dot.setAttribute('stroke-width', '1');
 
   const label = document.createElementNS('http://www.w3.org/2000/svg','text');
-  label.setAttribute('x', loc.x); label.setAttribute('y', loc.y - 9);
+  label.setAttribute('x', loc.x + (loc.ldx || 0));
+  label.setAttribute('y', loc.y + (loc.ldy !== undefined ? loc.ldy : -9));
+  label.style.textAnchor = loc.anchor || 'middle';
   label.textContent = loc.name.split(' (')[0];
 
   g.appendChild(ring); g.appendChild(dot); g.appendChild(label);
@@ -309,8 +394,15 @@ function computeRisk(loc){
 }
 
 /* ============================================================
-   EARTHQUAKES — real USGS feed, bounding box around West Bengal
-   + the Himalayan front + Bay of Bengal (relevant to tsunami risk)
+   EARTHQUAKES — real USGS feed, circular search: 500km radius from
+   West Bengal's approximate geographic centre. The state's own
+   plains are seismically quiet, so a small radius (e.g. 50km) very
+   often returns nothing; 500km reaches the actually active belts
+   nearby — the Himalayan front (Darjeeling/Sikkim/Nepal/Bhutan),
+   Assam/Bangladesh, and the Andaman/Bay of Bengal region — while
+   still being a defined, honest search radius rather than "all of
+   South Asia". No minimum magnitude, so minor catalogued events
+   are included too.
    ============================================================ */
 let recentQuakes = [];
 
@@ -318,7 +410,7 @@ async function loadQuakes(){
   const end = new Date();
   const start = new Date(end.getTime() - 30*24*3600*1000);
   const fmt = d => d.toISOString().slice(0,10);
-  const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${fmt(start)}&endtime=${fmt(end)}&minlatitude=18&maxlatitude=29&minlongitude=84&maxlongitude=93&minmagnitude=3&orderby=time`;
+  const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${fmt(start)}&endtime=${fmt(end)}&latitude=${WB_CENTRE.lat}&longitude=${WB_CENTRE.lon}&maxradiuskm=500&orderby=time`;
 
   try{
     const res = await fetch(url);
@@ -330,30 +422,103 @@ async function loadQuakes(){
       lat: f.geometry.coordinates[1],
       lon: f.geometry.coordinates[0]
     }));
-
-    renderQuakeList();
-    applyQuakeInfluence();
-    document.getElementById('quakeStatus').textContent = `live · USGS · ${recentQuakes.length} events`;
+    document.getElementById('quakeStatus').textContent = `live · USGS · ${recentQuakes.length} event(s) within 500km`;
   } catch(err){
+    recentQuakes = [];
     document.getElementById('quakeStatus').textContent = 'seismic feed unavailable';
-    document.getElementById('quakeList').innerHTML = '<div class="loading">Could not load earthquake data.</div>';
     console.error('USGS fetch failed', err);
   }
+
+  renderQuakeList();
+  drawEpicenters();
+  applyQuakeInfluence();
 }
 
 function renderQuakeList(){
   const el = document.getElementById('quakeList');
   if (recentQuakes.length === 0){
-    el.innerHTML = '<div class="loading">No magnitude 3+ earthquakes recorded in this region in the last 30 days.</div>';
+    el.innerHTML = '<div class="loading">No earthquakes catalogued by USGS within 500km of West Bengal\'s centre in the last 30 days.</div>';
     return;
   }
-  el.innerHTML = recentQuakes.slice(0, 25).map(q => `
+  const sorted = [...recentQuakes].sort((a,b) => b.time - a.time);
+  el.innerHTML = sorted.map(q => `
     <div class="quake-item">
       <span class="quake-mag ${q.mag >= 5 ? 'big' : ''}">M${q.mag.toFixed(1)}</span>
       <span class="quake-place">${q.place}</span>
-      <span class="quake-time">${q.time.toLocaleDateString()}</span>
+      <span class="quake-coords">${q.lat.toFixed(3)}°N, ${q.lon.toFixed(3)}°E</span>
+      <span class="quake-time">${q.time.toLocaleDateString()} ${q.time.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
     </div>
   `).join('');
+}
+
+// Draw each earthquake's epicenter as a red dot on the map, in the same
+// projected space as the WB boundary and district markers.
+function drawEpicenters(){
+  document.querySelectorAll('.epicenter').forEach(el => el.remove());
+
+  recentQuakes.forEach(q => {
+    const { x, y } = projectLatLonClamped(q.lat, q.lon);
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class','epicenter');
+
+    const pulse = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    pulse.setAttribute('cx', x); pulse.setAttribute('cy', y);
+    pulse.setAttribute('r', 6); pulse.setAttribute('class','epi-pulse');
+
+    const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('cx', x); dot.setAttribute('cy', y);
+    dot.setAttribute('r', 4); dot.setAttribute('class','epi-dot');
+
+    g.appendChild(pulse); g.appendChild(dot);
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const alreadySelected = g.classList.contains('selected');
+      document.querySelectorAll('.epicenter').forEach(el => el.classList.remove('selected'));
+      if (alreadySelected) {
+        selectedQuake = null;
+      } else {
+        g.classList.add('selected');
+        selectedQuake = q;
+        renderEpicenterInfo(q);
+      }
+      updateDistanceDisplay();
+      updatePanelVisibility();
+    });
+    svg.appendChild(g);
+  });
+}
+
+// Fills in the earthquake details box (magnitude, location, date, time)
+// for whichever epicenter was just clicked.
+function renderEpicenterInfo(q){
+  document.getElementById('eqLabel').textContent = `M${q.mag.toFixed(1)} Earthquake`;
+  document.getElementById('eqMag').textContent = `M${q.mag.toFixed(1)}`;
+  document.getElementById('eqPlace').textContent = `${q.place} (${q.lat.toFixed(3)}°N, ${q.lon.toFixed(3)}°E)`;
+  document.getElementById('eqDate').textContent = q.time.toLocaleDateString();
+  document.getElementById('eqTime').textContent = q.time.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+
+// Shows/hides the placeholder message vs the epicenter info box vs the
+// location detail box, depending on what's currently selected.
+function updatePanelVisibility(){
+  const hasQuake = !!selectedQuake;
+  const hasLocation = !!selectedLocation;
+  document.getElementById('epicenterInfo').style.display = hasQuake ? 'block' : 'none';
+  document.getElementById('placeholderMsg').style.display = (hasQuake || hasLocation) ? 'none' : 'block';
+}
+
+// Shows the distance between whichever epicenter and district marker are
+// currently selected, in either click order.
+function updateDistanceDisplay(){
+  const row = document.getElementById('distanceRow');
+  if (selectedQuake && selectedLocation){
+    const d = haversineKm(selectedLocation.lat, selectedLocation.lon, selectedQuake.lat, selectedQuake.lon);
+    document.getElementById('distanceVal').textContent = `${d.toFixed(1)} km`;
+    document.getElementById('distQuakeMag').textContent = `M${selectedQuake.mag.toFixed(1)} earthquake`;
+    row.style.display = 'flex';
+  } else {
+    row.style.display = 'none';
+  }
 }
 
 function haversineKm(lat1, lon1, lat2, lon2){
@@ -366,26 +531,62 @@ function haversineKm(lat1, lon1, lat2, lon2){
 
 // Use real nearby seismic activity to inform each location's earthquake + tsunami risk
 function applyQuakeInfluence(){
+
   LOCATIONS.forEach(loc => {
-    const nearby = recentQuakes.filter(q => haversineKm(loc.lat, loc.lon, q.lat, q.lon) <= 300);
-    const maxMag = nearby.reduce((m,q) => Math.max(m,q.mag), 0);
 
-    loc.quakeRisk = maxMag >= 5.5 ? 'high' : maxMag >= 4 ? 'med' : 'low';
-
-    if (loc.coastal){
-      const bayQuakes = recentQuakes.filter(q => q.lat < 24 && q.lon > 86 && q.mag >= 5.5);
-      loc.risk.tsunami = bayQuakes.length > 0 ? 'high' : 'low';
+    // Ensure risk object exists
+    if (!loc.risk) {
+      loc.risk = {
+        flood: 'low',
+        storm: 'low',
+        tsunami: loc.coastal ? 'low' : 'na',
+        overall: 'low'
+      };
     }
 
-    if (loc.risk){
-      const levels = [loc.risk.flood, loc.risk.storm, loc.risk.tsunami, loc.quakeRisk].filter(l => l && l !== 'na');
-      loc.risk.overall = levels.includes('high') ? 'high' : levels.includes('med') ? 'med' : 'low';
-      loc._dotEl.setAttribute('fill', riskColor(loc.risk.overall));
+    const nearby = recentQuakes.filter(q =>
+      haversineKm(loc.lat, loc.lon, q.lat, q.lon) <= 300
+    );
+
+    const maxMag = nearby.reduce((m, q) => Math.max(m, q.mag), 0);
+
+    loc.quakeRisk =
+      maxMag >= 5.5 ? 'high' :
+      maxMag >= 4 ? 'med' :
+      'low';
+
+    if (loc.coastal) {
+
+      const bayQuakes = recentQuakes.filter(q =>
+        q.lat < 24 &&
+        q.lon > 86 &&
+        q.mag >= 5.5
+      );
+
+      loc.risk.tsunami =
+        bayQuakes.length > 0 ? 'high' : 'low';
     }
+
+    const levels = [
+      loc.risk.flood,
+      loc.risk.storm,
+      loc.risk.tsunami,
+      loc.quakeRisk
+    ].filter(l => l !== 'na');
+
+    loc.risk.overall =
+      levels.includes('high') ? 'high'
+      : levels.includes('med') ? 'med'
+      : 'low';
+
+    loc._dotEl.setAttribute('fill', riskColor(loc.risk.overall));
+
   });
 
-  // refresh side panel if a location is already selected
-  if (selectedGroup) renderDetail(selectedGroup._loc);
+  // Refresh detail panel if one is selected
+  if (selectedGroup) {
+    renderDetail(selectedGroup._loc);
+  }
 }
 
 /* ============================================================
@@ -396,7 +597,10 @@ function selectLocation(loc, g){
   g.classList.add('selected');
   g._loc = loc;
   selectedGroup = g;
+  selectedLocation = loc;
   renderDetail(loc);
+  updateDistanceDisplay();
+  updatePanelVisibility();
 }
 
 function badge(level){
@@ -406,7 +610,6 @@ function badge(level){
 }
 
 function renderDetail(loc){
-  document.getElementById('placeholderMsg').style.display = 'none';
   document.getElementById('detailContent').style.display = 'block';
 
   document.getElementById('dName').textContent = loc.name;
@@ -437,8 +640,12 @@ function setRisk(id, level){
 /* ============================================================
    INIT
    ============================================================ */
-loadAllWeather();
-loadQuakes();
+async function init() {
+    await loadAllWeather();
+    await loadQuakes();
+}
+
+init();
 setInterval(loadAllWeather, 5 * 60 * 1000);   // refresh weather every 5 min
 setInterval(loadQuakes, 10 * 60 * 1000);      // refresh quakes every 10 min
 </script>
